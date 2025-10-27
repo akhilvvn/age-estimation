@@ -76,10 +76,13 @@
       </div>
     </div>
 
-    <div class="mt-10">
-      <div id="imageWrapper">
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+      <div id="placeholderText" class="text-center py-20 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
+        Upload an image to get started
+      </div>
+      <div id="imageWrapper" class="hidden">
         <img id="imageSpacer" src="https://placehold.co/720x480/e2e8f0/e2e8f0?text=+" alt="Image placeholder">
-        <img id="image" alt="Uploaded" class="hidden">
+        <img id="image" alt="Uploaded">
         <canvas id="canvas"></canvas>
       </div>
     </div>
@@ -95,6 +98,8 @@
       const statusBox = document.getElementById('statusBox');
       const statusText = document.getElementById('statusText');
       const spinner = document.getElementById('spinner');
+      const imageWrapper = document.getElementById('imageWrapper');
+      const placeholderText = document.getElementById('placeholderText');
 
       const MODEL_URL = './weights';
       let modelsLoaded = false;
@@ -137,9 +142,10 @@
         const reader = new FileReader();
 
         reader.onload = function(e) {
+          placeholderText.classList.add('hidden');
+          imageWrapper.classList.remove('hidden');
           imageSpacer.src = e.target.result;
           image.src = e.target.result;
-          image.classList.remove('hidden');
           
           image.onload = async () => {
             await runDetection();
@@ -158,13 +164,13 @@
           const ctx = canvas.getContext('2d');
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          const detection = await faceapi.detectSingleFace(
+          const detections = await faceapi.detectAllFaces(
             image,
             new faceapi.SsdMobilenetv1Options()
           ).withFaceLandmarks().withAgeAndGender();
 
-          if (!detection) {
-            statusText.innerText = 'No face detected. Please try another image.';
+          if (!detections || detections.length === 0) {
+            statusText.innerText = 'No faces detected. Please try another image.';
             spinner.classList.add('hidden');
             return;
           }
@@ -172,23 +178,27 @@
           const displaySize = { width: image.width, height: image.height };
           faceapi.matchDimensions(canvas, displaySize);
 
-          const resizedDetection = faceapi.resizeResults(detection, displaySize);
+          const resizedDetections = faceapi.resizeResults(detections, displaySize);
           
-          const { age } = resizedDetection;
-          const roundedAge = Math.round(age);
-          const label = `${roundedAge} years old`;
+          resizedDetections.forEach(detection => {
+            const { age } = detection;
+            const roundedAge = Math.round(age);
+            const label = `${roundedAge} years old`;
 
-          const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { 
-            label: label,
-            boxColor: '#3b82f6',
-            drawLabelOptions: {
-              backgroundColor: '#3b82f6',
-              fontColor: '#ffffff',
-            }
+            const drawBox = new faceapi.draw.DrawBox(detection.detection.box, { 
+              label: label,
+              boxColor: '#3b82f6',
+              drawLabelOptions: {
+                backgroundColor: '#3b82f6',
+                fontColor: '#ffffff',
+              }
+            });
+            drawBox.draw(canvas);
           });
-          drawBox.draw(canvas);
 
-          statusText.innerText = `Detection complete: ${roundedAge} years old.`;
+          const faceCount = detections.length;
+          const faceText = faceCount === 1 ? 'face' : 'faces';
+          statusText.innerText = `Detection complete: ${faceCount} ${faceText} detected.`;
           spinner.classList.add('hidden');
 
         } catch (error) {
@@ -206,7 +216,3 @@
   </script>
 </body>
 </html>
-
-
-
-
