@@ -1,507 +1,206 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>Client-Side Age Prediction</title>
-
-  <!-- 1. Load Tailwind CSS for styling -->
-
+  
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- 2. Load face-api.js (which includes Tensorflow.js) -->
-
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
+  
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api-core.min.js"></script>
+  
   <style>
-
-    /* Custom styles */
-
     body {
-
       font-family: 'Inter', sans-serif;
-
     }
-
-    /* Stack the canvas directly on top of the image */
-
     #imageWrapper {
-
       position: relative;
-
       width: 100%;
-
-      max-width: 720px; /* Max image width */
-
+      max-width: 720px; 
       margin: auto;
-
     }
-
     #imageWrapper img,
-
     #imageWrapper canvas {
-
       position: absolute;
-
       top: 0;
-
       left: 0;
-
       width: 100%;
-
       height: auto;
-
-      border-radius: 0.5rem; /* rounded-lg */
-
+      border-radius: 0.5rem; 
     }
-
-    /* We need this spacer to make the relative container
-
-      take the height of the image inside it */
-
     #imageSpacer {
-
       width: 100%;
-
       visibility: hidden;
-
-      border-radius: 0.5rem; /* rounded-lg */
-
+      border-radius: 0.5rem; 
     }
-
-    /* Simple loading spinner */
-
     .loader {
-
-      border: 4px solid #f3f3f3; /* light grey */
-
-      border-top: 4px solid #3b82f6; /* blue-500 */
-
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3b82f6;
       border-radius: 50%;
-
       width: 40px;
-
       height: 40px;
-
       animation: spin 1s linear infinite;
-
     }
-
     @keyframes spin {
-
       0% { transform: rotate(0deg); }
-
       100% { transform: rotate(360deg); }
-
     }
-
   </style>
-
-  <!-- Use Inter font -->
-
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
-
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 </head>
 
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-
-
   <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl max-w-2xl w-full">
-
-     
-
-    <!-- Header -->
-
+    
     <div class="text-center">
-
       <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Age Prediction Prototype</h1>
-
       <p class="mt-2 text-gray-600">This all runs 100% in your browser. Your image never leaves your computer.</p>
-
     </div>
-
-
-
-    <!-- File Upload -->
 
     <div class="mt-6">
-
       <label for="imageUpload" class="block w-full px-4 py-3 bg-blue-600 text-white text-center rounded-lg font-semibold cursor-pointer hover:bg-blue-700 transition duration-200">
-
         Upload Image
-
       </label>
-
       <input type="file" id="imageUpload" class="hidden" accept="image/*">
-
     </div>
-
-
-
-    <!-- Status Message Box -->
 
     <div id="statusBox" class="mt-4 text-center p-3 rounded-lg bg-gray-100 text-gray-700 font-medium hidden">
-
       <div class="flex items-center justify-center space-x-2">
-
         <div id="spinner" class="loader hidden"></div>
-
         <span id="statusText"></span>
-
       </div>
-
     </div>
-
-
-
-    <!-- Image and Canvas Display Area -->
 
     <div class="mt-6">
-
-      <!-- This wrapper holds the image and the canvas -->
-
       <div id="imageWrapper">
-
-        <!-- This spacer element defines the container's height based on the image -->
-
         <img id="imageSpacer" src="https://placehold.co/720x480/e2e8f0/e2e8f0?text=+" alt="Image placeholder">
-
-         
-
-        <!-- The actual image will be loaded here -->
-
         <img id="image" alt="Uploaded" class="hidden">
-
-         
-
-        <!-- The canvas for drawing detections will be placed on top -->
-
         <canvas id="canvas"></canvas>
-
       </div>
-
     </div>
-
-
-
-    <!-- Proof Section -->
-
-    <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-
-      <h3 class="font-semibold text-green-800">How This Works (Client-Side Proof)</h3>
-
-      <ol class="list-decimal list-inside mt-2 text-green-700 text-sm space-y-1">
-
-        <li>Your browser loads face-api.js (a machine learning library).</li>
-
-        <li>When you select a file, it's read by the browser's FileReader into memory.</li>
-
-        <li>The JavaScript runs the neural network models directly on the image data.</li>
-
-        <li>The results (age and bounding box) are drawn on the <canvas> element.</li>
-
-        <li><strong>At no point is your image sent to a server.</strong> You can verify this in the "Network" tab of your browser's developer tools.</li>
-
-      </ol>
-
-    </div>
-
-
 
   </div>
 
-
-
   <script>
-
-    // --- DOM Elements ---
-
     const imageUpload = document.getElementById('imageUpload');
-
     const image = document.getElementById('image');
-
     const imageSpacer = document.getElementById('imageSpacer');
-
     const canvas = document.getElementById('canvas');
-
     const statusBox = document.getElementById('statusBox');
-
     const statusText = document.getElementById('statusText');
-
     const spinner = document.getElementById('spinner');
 
-
-
-    // --- Model Loading ---
-
-    // This is the path to the pre-trained models.
-
-    // We load them from a public URL so this works on GitHub.io
-
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-
-
-
+    const MODEL_URL = './weights';
     let modelsLoaded = false;
 
-
-
     async function loadModels() {
-
       try {
-
         statusBox.classList.remove('hidden');
-
         spinner.classList.remove('hidden');
-
         statusText.innerText = 'Loading AI models (this may take a moment)...';
-
-         
-
+        
         await Promise.all([
-
-          // *** This version uses the standard SsdMobilenetv1 ***
-
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
-
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-
         ]);
-
-         
-
+        
         modelsLoaded = true;
-
         statusText.innerText = 'Models loaded. Please upload an image.';
-
         spinner.classList.add('hidden');
-
-         
-
+        
       } catch (error) {
-
         console.error('Error loading models:', error);
-
-        statusText.innerText = 'Error loading models. Please refresh.';
-
+        statusText.innerText = 'Error loading models. Check console (F12).';
         statusBox.classList.remove('bg-gray-100', 'text-gray-700');
-
         statusBox.classList.add('bg-red-100', 'text-red-700');
-
       }
-
     }
 
-
-
-    // --- Image Handling ---
-
     async function handleImageUpload(event) {
-
       if (!modelsLoaded) {
-
         statusText.innerText = 'Please wait for models to load.';
-
         return;
-
       }
-
-
 
       const file = event.target.files[0];
-
       if (!file) {
-
         return;
-
       }
-
-
-
-      // 1. Read the file into a Data URL (base64 string)
-
-      // This happens entirely in the browser.
 
       const reader = new FileReader();
 
-
-
       reader.onload = function(e) {
-
-        // Set the src for both the spacer and the main image
-
-        // The spacer will define the dimensions of the container
-
         imageSpacer.src = e.target.result;
-
         image.src = e.target.result;
-
         image.classList.remove('hidden');
-
-         
-
-        // Once the image is loaded into the <img> tag, run detection
-
+        
         image.onload = async () => {
-
           await runDetection();
-
         };
-
       };
 
-
-
       reader.readAsDataURL(file);
-
     }
-
-     
-
+    
     async function runDetection() {
-
       try {
-
         statusBox.classList.remove('hidden');
-
         spinner.classList.remove('hidden');
-
         statusText.innerText = 'Analyzing image...';
 
-
-
-        // Clear previous drawings
-
         const ctx = canvas.getContext('2d');
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-
-
-        // *** This version uses SsdMobilenetv1Options ***
-
-        // This is the core ML operation
-
         const detection = await faceapi.detectSingleFace(
-
           image,
-
-          new faceapi.SsdMobilenetv1Options() // <-- Standard model options
-
+          new faceapi.TinyFaceDetectorOptions()
         ).withFaceLandmarks().withAgeAndGender();
 
-
-
         if (!detection) {
-
           statusText.innerText = 'No face detected. Please try another image.';
-
           spinner.classList.add('hidden');
-
           return;
-
         }
 
-
-
-        // Prepare canvas for drawing
-
-        // Match the canvas dimensions to the displayed size of the image
-
         const displaySize = { width: image.width, height: image.height };
-
         faceapi.matchDimensions(canvas, displaySize);
 
-
-
-        // Resize the detection results to match the displayed image size
-
         const resizedDetection = faceapi.resizeResults(detection, displaySize);
-
-         
-
-        // Get the results
-
-        const { age, gender, genderProbability } = resizedDetection;
-
+        
+        const { age } = resizedDetection;
         const roundedAge = Math.round(age);
-
-        const genderText = ${gender} (${Math.round(genderProbability * 100)}%);
-
-        const label = ${roundedAge} years old;
-
-
-
-        // Draw the bounding box and the label
+        const label = `${roundedAge} years old`;
 
         const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { 
-
           label: label,
-
-          boxColor: '#3b82f6', // blue-500
-
+          boxColor: '#3b82f6',
           drawLabelOptions: {
-
             backgroundColor: '#3b82f6',
-
             fontColor: '#ffffff',
-
           }
-
         });
-
         drawBox.draw(canvas);
 
-
-
-        statusText.innerText = Detection complete: ${roundedAge} years old.;
-
+        statusText.innerText = `Detection complete: ${roundedAge} years old.`;
         spinner.classList.add('hidden');
-
-
 
       } catch (error) {
-
         console.error('Error during detection:', error);
-
         statusText.innerText = 'An error occurred during analysis.';
-
         spinner.classList.add('hidden');
-
         statusBox.classList.remove('bg-gray-100', 'text-gray-700');
-
         statusBox.classList.add('bg-red-100', 'text-red-700');
-
       }
-
     }
 
-
-
-    // --- Event Listeners ---
-
     imageUpload.addEventListener('change', handleImageUpload);
-
-
-
-    // Start loading models immediately
-
     loadModels();
-
   </script>
-
 </body>
-
 </html>
