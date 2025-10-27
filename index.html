@@ -87,120 +87,122 @@
   </div>
 
   <script>
-    const imageUpload = document.getElementById('imageUpload');
-    const image = document.getElementById('image');
-    const imageSpacer = document.getElementById('imageSpacer');
-    const canvas = document.getElementById('canvas');
-    const statusBox = document.getElementById('statusBox');
-    const statusText = document.getElementById('statusText');
-    const spinner = document.getElementById('spinner');
+    document.addEventListener('DOMContentLoaded', (event) => {
+      const imageUpload = document.getElementById('imageUpload');
+      const image = document.getElementById('image');
+      const imageSpacer = document.getElementById('imageSpacer');
+      const canvas = document.getElementById('canvas');
+      const statusBox = document.getElementById('statusBox');
+      const statusText = document.getElementById('statusText');
+      const spinner = document.getElementById('spinner');
 
-    const MODEL_URL = './weights';
-    let modelsLoaded = false;
+      const MODEL_URL = './weights';
+      let modelsLoaded = false;
 
-    async function loadModels() {
-      try {
-        statusBox.classList.remove('hidden');
-        spinner.classList.remove('hidden');
-        statusText.innerText = 'Loading AI models (this may take a moment)...';
-        
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-        ]);
-        
-        modelsLoaded = true;
-        statusText.innerText = 'Models loaded. Please upload an image.';
-        spinner.classList.add('hidden');
-        
-      } catch (error) {
-        console.error('Error loading models:', error);
-        statusText.innerText = 'Error loading models. Check console (F12).';
-        statusBox.classList.remove('bg-gray-100', 'text-gray-700');
-        statusBox.classList.add('bg-red-100', 'text-red-700');
-      }
-    }
-
-    async function handleImageUpload(event) {
-      if (!modelsLoaded) {
-        statusText.innerText = 'Please wait for models to load.';
-        return;
-      }
-
-      const file = event.target.files[0];
-      if (!file) {
-        return;
-      }
-
-      const reader = new FileReader();
-
-      reader.onload = function(e) {
-        imageSpacer.src = e.target.result;
-        image.src = e.target.result;
-        image.classList.remove('hidden');
-        
-        image.onload = async () => {
-          await runDetection();
-        };
-      };
-
-      reader.readAsDataURL(file);
-    }
-    
-    async function runDetection() {
-      try {
-        statusBox.classList.remove('hidden');
-        spinner.classList.remove('hidden');
-        statusText.innerText = 'Analyzing image...';
-
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const detection = await faceapi.detectSingleFace(
-          image,
-          new faceapi.TinyFaceDetectorOptions()
-        ).withFaceLandmarks().withAgeAndGender();
-
-        if (!detection) {
-          statusText.innerText = 'No face detected. Please try another image.';
+      async function loadModels() {
+        try {
+          statusBox.classList.remove('hidden');
+          spinner.classList.remove('hidden');
+          statusText.innerText = 'Loading AI models (this may take a moment)...';
+          
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+          ]);
+          
+          modelsLoaded = true;
+          statusText.innerText = 'Models loaded. Please upload an image.';
           spinner.classList.add('hidden');
+          
+        } catch (error) {
+          console.error('Error loading models:', error);
+          statusText.innerText = 'Error loading models. Check console (F12).';
+          statusBox.classList.remove('bg-gray-100', 'text-gray-700');
+          statusBox.classList.add('bg-red-100', 'text-red-700');
+        }
+      }
+
+      async function handleImageUpload(event) {
+        if (!modelsLoaded) {
+          statusText.innerText = 'Please wait for models to load.';
           return;
         }
 
-        const displaySize = { width: image.width, height: image.height };
-        faceapi.matchDimensions(canvas, displaySize);
+        const file = event.target.files[0];
+        if (!file) {
+          return;
+        }
 
-        const resizedDetection = faceapi.resizeResults(detection, displaySize);
-        
-        const { age } = resizedDetection;
-        const roundedAge = Math.round(age);
-        const label = `${roundedAge} years old`;
+        const reader = new FileReader();
 
-        const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { 
-          label: label,
-          boxColor: '#3b82f6',
-          drawLabelOptions: {
-            backgroundColor: '#3b82f6',
-            fontColor: '#ffffff',
-          }
-        });
-        drawBox.draw(canvas);
+        reader.onload = function(e) {
+          imageSpacer.src = e.target.result;
+          image.src = e.target.result;
+          image.classList.remove('hidden');
+          
+          image.onload = async () => {
+            await runDetection();
+          };
+        };
 
-        statusText.innerText = `Detection complete: ${roundedAge} years old.`;
-        spinner.classList.add('hidden');
-
-      } catch (error) {
-        console.error('Error during detection:', error);
-        statusText.innerText = 'An error occurred during analysis.';
-        spinner.classList.add('hidden');
-        statusBox.classList.remove('bg-gray-100', 'text-gray-700');
-        statusBox.classList.add('bg-red-100', 'text-red-700');
+        reader.readAsDataURL(file);
       }
-    }
+      
+      async function runDetection() {
+        try {
+          statusBox.classList.remove('hidden');
+          spinner.classList.remove('hidden');
+          statusText.innerText = 'Analyzing image...';
 
-    imageUpload.addEventListener('change', handleImageUpload);
-    loadModels();
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const detection = await faceapi.detectSingleFace(
+            image,
+            new faceapi.TinyFaceDetectorOptions()
+          ).withFaceLandmarks().withAgeAndGender();
+
+          if (!detection) {
+            statusText.innerText = 'No face detected. Please try another image.';
+            spinner.classList.add('hidden');
+            return;
+          }
+
+          const displaySize = { width: image.width, height: image.height };
+          faceapi.matchDimensions(canvas, displaySize);
+
+          const resizedDetection = faceapi.resizeResults(detection, displaySize);
+          
+          const { age } = resizedDetection;
+          const roundedAge = Math.round(age);
+          const label = `${roundedAge} years old`;
+
+          const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { 
+            label: label,
+            boxColor: '#3b82f6',
+            drawLabelOptions: {
+              backgroundColor: '#3b82f6',
+              fontColor: '#ffffff',
+            }
+          });
+          drawBox.draw(canvas);
+
+          statusText.innerText = `Detection complete: ${roundedAge} years old.`;
+          spinner.classList.add('hidden');
+
+        } catch (error) {
+          console.error('Error during detection:', error);
+          statusText.innerText = 'An error occurred during analysis.';
+          spinner.classList.add('hidden');
+          statusBox.classList.remove('bg-gray-100', 'text-gray-700');
+          statusBox.classList.add('bg-red-100', 'text-red-700');
+        }
+      }
+
+      imageUpload.addEventListener('change', handleImageUpload);
+      loadModels();
+    });
   </script>
 </body>
 </html>
