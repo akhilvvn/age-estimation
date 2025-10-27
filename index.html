@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Client-Side Age Prediction</title>
+  <title>Client-Side Age Estimation</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -58,8 +58,8 @@
   <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl max-w-2xl w-full">
     
     <div class="text-center">
-      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Age Prediction Prototype</h1>
-      <p class="mt-2 text-gray-600">This all runs 100% in your browser. Your image never leaves your computer.</p>
+      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Age Estimation</h1>
+      <p class="mt-2 text-gray-600">All runs 100% in the browser.</p>
     </div>
 
     <div class="mt-6">
@@ -103,7 +103,7 @@
         try {
           statusBox.classList.remove('hidden');
           spinner.classList.remove('hidden');
-          statusText.innerText = 'Loading AI models (this may take a moment)...';
+          statusText.innerText = 'Loading models (this may take a moment)...';
           
           await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -206,5 +206,6 @@
   </script>
 </body>
 </html>
+
 
 
