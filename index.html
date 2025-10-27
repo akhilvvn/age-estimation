@@ -76,7 +76,7 @@
       </div>
     </div>
 
-    <div class="mt-6">
+    <div class="mt-10">
       <div id="imageWrapper">
         <img id="imageSpacer" src="https://placehold.co/720x480/e2e8f0/e2e8f0?text=+" alt="Image placeholder">
         <img id="image" alt="Uploaded" class="hidden">
@@ -106,7 +106,7 @@
           statusText.innerText = 'Loading models (this may take a moment)...';
           
           await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
           ]);
@@ -160,7 +160,7 @@
 
           const detection = await faceapi.detectSingleFace(
             image,
-            new faceapi.TinyFaceDetectorOptions()
+            new faceapi.SsdMobilenetv1Options()
           ).withFaceLandmarks().withAgeAndGender();
 
           if (!detection) {
@@ -206,6 +206,7 @@
   </script>
 </body>
 </html>
+
 
 
 
